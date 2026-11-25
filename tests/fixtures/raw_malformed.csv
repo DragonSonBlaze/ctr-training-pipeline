@@ -1,0 +1,9 @@
+id,click,hour,C1,banner_pos,site_id,site_domain,site_category,app_id,app_domain,app_category,device_id,device_ip,device_model,device_type,device_conn_type,C14,C15,C16,C17,C18,C19,C20,C21
+1000000000000000001,1,14102100,1005,0,site_a,dom_a,cat_a,app_a,adom_a,acat_a,a99f214a,10.0.0.1,model_x,1,0,15706,320,50,1722,0,35,-1,79
+1000000000000000002,0,14102100,1005,1,site_a,dom_a,cat_a,app_b,adom_b,acat_a,a99f214a,10.0.0.2,model_y,1,0,15706,320,50,1722,0,35,-1,79
+1000000000000000003,x,14102100,1002,0,site_b,dom_b,cat_b,app_a,adom_a,acat_a,a99f214a,10.0.0.1,model_x,1,2,15704,320,50,1722,0,35,100084,79
+18446744073709551615,1,14102100,1002,0,site_b,dom_b,cat_b,app_a,adom_a,acat_a,a99f214a,10.0.0.3,model_z,1,2,15704,320,50,1722,0,35,100084,79
+1000000000000000005,0,14102101,1005,0,site_a,dom_a,cat_a,app_a,adom_a,acat_a,a99f214a,10.0.0.1,model_x,1,0,15706,320,50,1722,0,35,-1,79
+1000000000000000006,1,14102101,1005,1,site_c,dom_c,cat_c,app_c,adom_c,acat_c,a99f214a,10.0.0.4,model_y,1,0,15706,320,50,1722,0,35,-1,79
+1000000000000000007,1,14102200,1005,0,site_a,dom_a,cat_a,app_a,adom_a,acat_a,a99f214a,10.0.0.1,model_x,1,0,15706,320,50,1722,0,35,-1,79
+1000000000000000008,0,14102200,1002,0,site_b,dom_b,cat_b,app_b,adom_b,acat_b,a99f214a,10.0.0.5,model_z,1,2,15704,320,50,1722,0,35,100084,79
