@@ -1,0 +1,23 @@
+# Data and generated artifacts
+data/
+*.gz
+*.csv
+*.parquet
+mlruns/
+mlartifacts/
+checkpoints/
+logs/
+
+# Small hand-made CSV inputs for tests are committed
+!tests/fixtures/*.csv
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.venv-airflow/
+.airflow/
+.env
+
+# OS
+.DS_Store

@@ -1,0 +1,18 @@
+# Loaded by Grafana at startup. Dashboards and alerts come in Stage 5.
+apiVersion: 1
+
+datasources:
+  - name: monitoring
+    uid: monitoring-postgres
+    type: grafana-postgresql-datasource
+    access: proxy
+    url: postgres:5432
+    user: $GRAFANA_DB_USER
+    secureJsonData:
+      password: $GRAFANA_DB_PASSWORD
+    jsonData:
+      database: monitoring
+      sslmode: disable
+      postgresVersion: 1600
+    isDefault: true
+    editable: false
