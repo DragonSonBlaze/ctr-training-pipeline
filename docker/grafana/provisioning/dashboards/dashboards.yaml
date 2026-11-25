@@ -1,0 +1,9 @@
+apiVersion: 1
+providers:
+  - name: ctr-pipeline
+    folder: CTR pipeline
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    options:
+      path: /etc/grafana/dashboards
