@@ -79,6 +79,11 @@ KERAS_MAX_EPOCHS = 4
 KERAS_PATIENCE = 1
 KERAS_SEED = 42
 
+# Keras sweep: every combination of these three lists is one trial (8 in all)
+SWEEP_EMBEDDING_DIMS: tuple[int, ...] = (8, 16)
+SWEEP_NUM_BUCKETS: tuple[int, ...] = (2**18, 2**20)
+SWEEP_LEARNING_RATES: tuple[float, ...] = (1e-3, 3e-3)
+
 # Feature drift: Wasserstein distance of each smoothed click-rate feature, day D against D-1.
 # 0.02 means the values moved 2 click-rate points on average.
 DRIFT_QUANTILES = 99

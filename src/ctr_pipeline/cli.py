@@ -18,9 +18,10 @@ from ctr_pipeline.config import (
     previous_day,
     validate_date,
 )
-from ctr_pipeline.dataset import build_dataset
+from ctr_pipeline.dataset import build_dataset, latest_version
 from ctr_pipeline.drift import drift_for_date
 from ctr_pipeline.errors import MissingInputError, QualityCheckFailed, SkipStep
+from ctr_pipeline.experiment import run_experiment
 from ctr_pipeline.features import build_training_set, feature_stats, load_training_day
 from ctr_pipeline.hourly_load import is_day_complete, load_hourly, missing_hours
 from ctr_pipeline.models.train import MODEL_TYPES, train_for_date
@@ -147,6 +148,23 @@ def cmd_train(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_experiment(args: argparse.Namespace) -> int:
+    version = args.dataset or latest_version()
+    with record_step("experiment", None):
+        result = run_experiment(version)
+    logger.info(
+        "experiment %s: baseline val_log_loss=%.6f, best trial %s val_log_loss=%.6f",
+        version,
+        result.baseline.val_log_loss,
+        result.best_trial.run_id,
+        result.best_trial.val_log_loss,
+    )
+    # The parent run id must be the last line of stdout, alone, as for train.
+    sys.stdout.write(result.parent_run_id + "\n")
+    sys.stdout.flush()
+    return EXIT_OK
+
+
 def cmd_promote(args: argparse.Namespace) -> int:
     with record_step("promote", args.date):
         promote_if_better(args.date, args.run_id)
@@ -224,6 +242,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="model type to fit (default: %(default)s)",
     )
     train.set_defaults(handler=cmd_train)
+
+    experiment = subcommands.add_parser(
+        "experiment", help="baseline and Keras sweep over one dataset, tracked in MLflow"
+    )
+    experiment.add_argument(
+        "--dataset", default=None, help="dataset version (default: the newest one)"
+    )
+    experiment.set_defaults(handler=cmd_experiment)
 
     promote = subcommands.add_parser(
         "promote", help="pick the best candidate of the day and move the champion alias if better"
