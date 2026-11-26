@@ -40,6 +40,7 @@ from ctr_pipeline.models.embedding_nn import HashedEmbeddingModel
 from ctr_pipeline.models.evaluate import compute_metrics
 from ctr_pipeline.models.historical_ctr import HistoricalCtrModel
 from ctr_pipeline.models.logistic import HashedLogisticModel
+from ctr_pipeline.models.sklearn_baseline import SklearnLogisticModel
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +48,7 @@ MODEL_TYPES: dict[str, Callable[[], CtrModel]] = {
     HistoricalCtrModel.model_type: HistoricalCtrModel,
     HashedLogisticModel.model_type: HashedLogisticModel,
     HashedEmbeddingModel.model_type: HashedEmbeddingModel,
+    SklearnLogisticModel.model_type: SklearnLogisticModel,
 }
 PYFUNC_PIP_REQUIREMENTS = ["numpy", "pandas", "torch"]
 

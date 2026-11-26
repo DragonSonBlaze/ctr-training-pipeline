@@ -64,6 +64,11 @@ NN_EPOCHS = 2
 NN_BATCH_SIZE = 8192
 NN_LEARNING_RATE = 0.002
 
+# scikit-learn logistic regression baseline: hash space, L2 strength and solver iteration cap
+SK_NUM_BUCKETS = 2**20
+SK_C = 1.0
+SK_MAX_ITER = 100
+
 # Feature drift: Wasserstein distance of each smoothed click-rate feature, day D against D-1.
 # 0.02 means the values moved 2 click-rate points on average.
 DRIFT_QUANTILES = 99
