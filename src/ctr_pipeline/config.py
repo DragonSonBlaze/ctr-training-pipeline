@@ -19,6 +19,19 @@ REPO_ROOT: Path = Path(__file__).resolve().parents[2]
 FIRST_DAY = "2014-10-21"
 FIRST_TRAINING_DAY = "2014-10-22"
 LAST_DAY = "2014-10-30"
+# Time-based split by day. 21 Oct is left out: its click history starts from zero.
+TRAIN_DAYS: tuple[str, ...] = (
+    "2014-10-22",
+    "2014-10-23",
+    "2014-10-24",
+    "2014-10-25",
+    "2014-10-26",
+    "2014-10-27",
+)
+VALIDATION_DAYS: tuple[str, ...] = ("2014-10-28",)
+TEST_DAYS: tuple[str, ...] = ("2014-10-29", "2014-10-30")
+VALIDATION_SAMPLE_FRACTION = 0.25
+SPLITS: tuple[str, ...] = ("train", "validation", "test")
 FEATURE_VERSION = "v1"
 FEATURE_ALPHA = 20.0
 MODEL_BETA = 20.0
@@ -71,6 +84,7 @@ class Settings:
     hourly_dir: Path
     training_dir: Path
     manifests_dir: Path
+    datasets_dir: Path
     mlflow_tracking_uri: str
     monitoring_dsn: str
 
@@ -116,6 +130,7 @@ def get_settings() -> Settings:
         hourly_dir=data_dir / "hourly" / "events",
         training_dir=training_dir,
         manifests_dir=training_dir / "_manifests",
+        datasets_dir=data_dir / "datasets",
         mlflow_tracking_uri=os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5001"),
         monitoring_dsn=_monitoring_dsn(),
     )

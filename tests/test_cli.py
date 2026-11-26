@@ -41,7 +41,7 @@ def test_unimplemented_handler_maps_to_1(monkeypatch):
     assert cli.main(["build-training-set", "--date", "2014-10-22"]) == 1
 
 
-def test_parser_lists_nine_subcommands():
+def test_parser_lists_subcommands():
     parser = cli.build_parser()
     subparsers = next(a for a in parser._actions if a.dest == "command")
     assert set(subparsers.choices) == {
@@ -49,6 +49,7 @@ def test_parser_lists_nine_subcommands():
         "check-complete",
         "quality-check",
         "build-training-set",
+        "build-dataset",
         "feature-drift",
         "train",
         "promote",
