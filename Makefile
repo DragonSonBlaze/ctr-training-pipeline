@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 .PHONY: help env sync up down ps logs test lint format data sample monitoring-init load load-day \
-	airflow-install airflow-db airflow replay replay-again runs dag-check models-reset
+	airflow-install airflow-db airflow replay replay-again runs dag-check models-reset alert-drill
 
 -include .env
 export
@@ -83,3 +83,6 @@ dag-check: ## Load the DAG in the Airflow venv and check its tasks and order
 
 models-reset: ## Delete the registered model ctr-model (all versions and the champion alias) so a replay starts clean. Runs stay in MLflow.
 	uv run python scripts/reset_models.py
+
+alert-drill: ## Break each monitored metric on purpose, check every Grafana alert fires, then restore (needs make up)
+	uv run python scripts/alert_drill.py
