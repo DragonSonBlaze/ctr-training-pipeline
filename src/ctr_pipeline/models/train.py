@@ -2,6 +2,9 @@
 
 Day D is never used for fitting: training uses the training sets of the days
 before D, and the evaluation uses D alone.
+
+Each trained model is logged to its MLflow run as the artifact `model` and is not
+registered here. Only promotion registers a model, and only when it becomes champion.
 """
 
 from __future__ import annotations
@@ -25,7 +28,6 @@ from ctr_pipeline.config import (
     FEATURE_VERSION,
     FIRST_TRAINING_DAY,
     MLFLOW_EXPERIMENT,
-    REGISTERED_MODEL,
     TRAIN_SAMPLE_FRACTION,
     TRAIN_SAMPLE_SEED,
     day_range,
@@ -52,7 +54,6 @@ PYFUNC_PIP_REQUIREMENTS = ["numpy", "pandas", "torch"]
 @dataclass(frozen=True)
 class TrainResult:
     run_id: str
-    model_version: int
     dataset_version: str
     metrics: dict[str, float | None]
     train_rows: int
@@ -153,8 +154,11 @@ def _log_to_mlflow(
     metrics: dict[str, float | None],
     train_rows: int,
     eval_rows: int,
-) -> tuple[str, int]:
-    """Log one run: params, metrics and the registered pyfunc model. Returns run id and version."""
+) -> str:
+    """Log one run: params, metrics and the pyfunc model as a run artifact. Returns the run id.
+
+    The model is not registered: the registry holds only models that became champion.
+    """
     mlflow.set_tracking_uri(get_settings().mlflow_tracking_uri)
     mlflow.set_experiment(MLFLOW_EXPERIMENT)
     with mlflow.start_run(run_name=f"{model.model_type}-{date}") as run:
@@ -183,22 +187,18 @@ def _log_to_mlflow(
         values.update({f"fitted_{k}": float(v) for k, v in model.fitted_values().items()})
         mlflow.log_metrics(values)
 
-        info = mlflow.pyfunc.log_model(
+        mlflow.pyfunc.log_model(
             name="model",
             python_model=model.to_pyfunc(),
-            registered_model_name=REGISTERED_MODEL,
             pip_requirements=PYFUNC_PIP_REQUIREMENTS,
         )
-        version = int(info.registered_model_version)
-        mlflow.set_tag("model_version", str(version))
-    return run_id, version
+    return run_id
 
 
 def _record_monitoring(
     run_id: str,
     date: str,
     model: CtrModel,
-    version: int,
     dataset: str,
     metrics: dict[str, float | None],
     train_rows: int,
@@ -209,7 +209,7 @@ def _record_monitoring(
             "mlflow_run_id": run_id,
             "data_date": date,
             "model_type": model.model_type,
-            "model_version": version,
+            "model_version": None,
             "dataset_version": dataset,
             "train_rows": train_rows,
             "eval_rows": eval_rows,
@@ -226,10 +226,11 @@ def train_for_date(
     model_type: str = DEFAULT_MODEL_TYPE,
     model: CtrModel | None = None,
 ) -> TrainResult:
-    """Fit on the earlier days, evaluate on date, and log the run.
+    """Fit on the earlier days, evaluate on date, and log the run without registering a model.
 
     The model type defaults to DEFAULT_MODEL_TYPE, the one the daily pipeline trains.
-    A ready-made model object may be passed instead of a type.
+    A ready-made model object may be passed instead of a type. The model is available
+    as runs:/<run_id>/model; promotion decides whether it is registered.
     """
     if model is None:
         model = _build_model(model_type)
@@ -248,8 +249,8 @@ def train_for_date(
     train_rows = len(train)
     eval_rows = int(y_true.size)
 
-    run_id, version = _log_to_mlflow(model, date, days, dataset, metrics, train_rows, eval_rows)
-    _record_monitoring(run_id, date, model, version, dataset, metrics, train_rows, eval_rows)
+    run_id = _log_to_mlflow(model, date, days, dataset, metrics, train_rows, eval_rows)
+    _record_monitoring(run_id, date, model, dataset, metrics, train_rows, eval_rows)
     logger.info(
         "trained %s on %d rows from %s..%s, evaluated on %s (%d rows): auc=%s log_loss=%.6f",
         model.model_type,
@@ -263,7 +264,6 @@ def train_for_date(
     )
     return TrainResult(
         run_id=run_id,
-        model_version=version,
         dataset_version=dataset,
         metrics=metrics,
         train_rows=train_rows,

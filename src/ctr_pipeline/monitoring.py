@@ -188,12 +188,16 @@ def update_model_run_promotion(
     mlflow_run_id: str,
     promoted: bool,
     champion_log_loss: float | None,
+    model_version: int | None = None,
     dsn: str | None = None,
 ) -> None:
+    """Record the promotion decision. A None model_version keeps the stored version."""
+
     def write(conn: psycopg.Connection) -> None:
         conn.execute(
-            "UPDATE model_runs SET promoted = %s, champion_log_loss = %s WHERE mlflow_run_id = %s",
-            (promoted, champion_log_loss, mlflow_run_id),
+            "UPDATE model_runs SET promoted = %s, champion_log_loss = %s, "
+            "model_version = COALESCE(%s, model_version) WHERE mlflow_run_id = %s",
+            (promoted, champion_log_loss, model_version, mlflow_run_id),
         )
 
     _best_effort_write(f"promotion of model run {mlflow_run_id}", dsn, write)

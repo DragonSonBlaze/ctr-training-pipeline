@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 .PHONY: help env sync up down ps logs test lint format data sample monitoring-init load load-day \
-	airflow-install airflow-db airflow replay replay-again runs dag-check
+	airflow-install airflow-db airflow replay replay-again runs dag-check models-reset
 
 -include .env
 export
@@ -80,3 +80,6 @@ runs: ## List the ctr_daily runs and their states
 
 dag-check: ## Load the DAG in the Airflow venv and check its tasks and order
 	@$(AIRFLOW_ENV) .venv-airflow/bin/python scripts/check_dag.py
+
+models-reset: ## Delete the registered model ctr-model (all versions and the champion alias) so a replay starts clean. Runs stay in MLflow.
+	uv run python scripts/reset_models.py

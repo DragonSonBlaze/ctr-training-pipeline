@@ -124,12 +124,7 @@ def _run_training(date: str, model_type: str = DEFAULT_MODEL_TYPE) -> str:
     with record_step("train", date) as stats:
         result = train_for_date(date, model_type)
         stats.rows_in = result.train_rows
-    logger.info(
-        "run %s: model version %s, metrics %s",
-        result.run_id,
-        result.model_version,
-        result.metrics,
-    )
+    logger.info("run %s: metrics %s", result.run_id, result.metrics)
     return result.run_id
 
 

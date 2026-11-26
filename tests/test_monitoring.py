@@ -140,6 +140,38 @@ def test_quality_results_upsert_replaces(postgres):
     assert rows == [(True,)]
 
 
+def test_promotion_sets_model_version_and_none_keeps_it(postgres):
+    import psycopg
+
+    dsn = postgres["owner_dsn"]
+    run_id = "b" * 32
+    monitoring.record_model_run(
+        {
+            "mlflow_run_id": run_id,
+            "data_date": TEST_DATE,
+            "model_type": "test-model",
+            "dataset_version": "test-dataset",
+        },
+        dsn=dsn,
+    )
+
+    monitoring.update_model_run_promotion(run_id, True, 0.4, 3, dsn=dsn)
+    with psycopg.connect(dsn) as conn:
+        after_promotion = conn.execute(
+            "SELECT model_version, promoted FROM model_runs WHERE mlflow_run_id = %s",
+            (run_id,),
+        ).fetchone()
+    assert after_promotion == (3, True)
+
+    monitoring.update_model_run_promotion(run_id, False, 0.4, dsn=dsn)
+    with psycopg.connect(dsn) as conn:
+        after_later_call = conn.execute(
+            "SELECT model_version, promoted FROM model_runs WHERE mlflow_run_id = %s",
+            (run_id,),
+        ).fetchone()
+    assert after_later_call == (3, False)
+
+
 def test_grafana_reader_can_read_new_tables(postgres):
     import psycopg
 

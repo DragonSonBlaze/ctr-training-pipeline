@@ -54,14 +54,13 @@ def test_run_logged_with_dataset_version_params_and_metrics(days):
     assert 250 <= run.data.metrics["train_rows"] <= 350
 
 
-def test_model_registered_and_loadable(days):
+def test_training_registers_no_version_and_model_loads_from_run(days):
     model = HistoricalCtrModel()
     result = train_for_date(EVAL_DAY, model=model)
 
-    assert result.model_version == 1
-    assert MlflowClient().get_model_version(REGISTERED_MODEL, "1").name == REGISTERED_MODEL
+    assert len(MlflowClient().search_model_versions(f"name='{REGISTERED_MODEL}'")) == 0
 
-    loaded = mlflow.pyfunc.load_model(f"models:/{REGISTERED_MODEL}/{result.model_version}")
+    loaded = mlflow.pyfunc.load_model(f"runs:/{result.run_id}/model")
     eval_frame = load_eval_frame(EVAL_DAY, MODEL_INPUT_COLUMNS)
     np.testing.assert_allclose(loaded.predict(eval_frame), model.predict(eval_frame))
 
