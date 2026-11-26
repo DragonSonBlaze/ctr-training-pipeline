@@ -270,6 +270,57 @@
           "rawSql": "SELECT DISTINCT ON (data_date, model_type) data_date::timestamptz AS time, model_type AS metric, auc AS value FROM model_runs WHERE $__timeFilter(data_date) ORDER BY data_date, model_type, recorded_at DESC"
         }
       ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Feature drift (Wasserstein distance vs previous day)",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 32
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "monitoring-postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 0.02
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "monitoring-postgres"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "time_series",
+          "rawSql": "SELECT data_date::timestamptz AS time, feature AS metric, distance AS value FROM feature_drift WHERE $__timeFilter(data_date) ORDER BY 1"
+        }
+      ]
     }
   ]
 }

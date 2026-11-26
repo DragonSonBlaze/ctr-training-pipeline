@@ -231,3 +231,30 @@ def record_feature_stats(
             )
 
     _best_effort_write(f"feature stats for {data_date}", dsn, write)
+
+
+def record_feature_drift(
+    data_date: str,
+    reference_date: str,
+    values: dict[str, float],
+    dsn: str | None = None,
+) -> None:
+    """Store the drift distance of each feature for one day. A re-run replaces that day's rows."""
+    rows = [(data_date, reference_date, feature, distance) for feature, distance in values.items()]
+
+    def write(conn: psycopg.Connection) -> None:
+        with conn.cursor() as cur:
+            cur.executemany(
+                """
+                INSERT INTO feature_drift
+                    (data_date, reference_date, feature, distance, computed_at)
+                VALUES (%s, %s, %s, %s, now())
+                ON CONFLICT (data_date, feature) DO UPDATE SET
+                    reference_date = EXCLUDED.reference_date,
+                    distance = EXCLUDED.distance,
+                    computed_at = now()
+                """,
+                rows,
+            )
+
+    _best_effort_write(f"feature drift for {data_date}", dsn, write)

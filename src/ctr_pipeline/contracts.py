@@ -116,6 +116,10 @@ NUMERIC_FEATURES: list[str] = [
     "device_prior_impr",
 ]
 
+# Only the smoothed rates are compared day to day. The prior_impr counts grow by design
+# (they are cumulative since FIRST_DAY), so a drift score on them would always fire.
+DRIFT_FEATURES: list[str] = ["app_ctr_smooth", "site_ctr_smooth", "device_ctr_smooth"]
+
 # Every column any model may read. Promotion reads these for every model type.
 PREDICT_COLUMNS: list[str] = CATEGORICAL_FIELDS + [
     column for column in FEATURE_COLUMNS if column not in CATEGORICAL_FIELDS

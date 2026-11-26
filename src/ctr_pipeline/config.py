@@ -51,6 +51,16 @@ NN_EPOCHS = 2
 NN_BATCH_SIZE = 8192
 NN_LEARNING_RATE = 0.002
 
+# Feature drift: Wasserstein distance of each smoothed click-rate feature, day D against D-1.
+# 0.02 means the values moved 2 click-rate points on average.
+DRIFT_QUANTILES = 99
+DRIFT_ALERT_THRESHOLD = 0.02
+
+# Grafana alert thresholds. The rule file repeats these values, and a test checks they match.
+ALERT_STEP_SECONDS = 600
+ALERT_MIN_ROWS = MIN_ROWS_PER_DAY
+ALERT_CALIBRATION_REL_ERROR = 0.10
+
 _DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 

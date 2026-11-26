@@ -28,6 +28,10 @@ def calls(monkeypatch) -> list[str]:
         recorded.append("build-training-set")
         return cli.EXIT_OK
 
+    def drift(args: argparse.Namespace) -> int:
+        recorded.append("feature-drift")
+        return cli.EXIT_OK
+
     def train(date: str, model_type: str) -> str:
         recorded.append(f"train:{model_type}")
         return RUN_IDS[model_type]
@@ -39,6 +43,7 @@ def calls(monkeypatch) -> list[str]:
     monkeypatch.setattr(cli, "is_day_complete", complete)
     monkeypatch.setattr(cli, "cmd_quality_check", quality)
     monkeypatch.setattr(cli, "cmd_build_training_set", build)
+    monkeypatch.setattr(cli, "cmd_feature_drift", drift)
     monkeypatch.setattr(cli, "_run_training", train)
     monkeypatch.setattr(cli, "cmd_promote", promote)
     return recorded
@@ -50,6 +55,7 @@ def test_steps_run_in_order_and_promote_gets_every_train_run_id(calls):
         "check-complete",
         "quality-check",
         "build-training-set",
+        "feature-drift",
         "train:logistic_hashed",
         "train:embedding_nn",
         f"promote:{RUN_ID},{EMBEDDING_RUN_ID}",
@@ -67,6 +73,7 @@ def test_skip_from_train_stops_before_promote(monkeypatch, calls):
         "check-complete",
         "quality-check",
         "build-training-set",
+        "feature-drift",
         "train:logistic_hashed",
     ]
 

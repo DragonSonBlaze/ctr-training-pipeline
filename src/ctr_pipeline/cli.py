@@ -11,13 +11,21 @@ import logging
 import sys
 from collections.abc import Callable
 
-from ctr_pipeline.config import DAILY_MODEL_TYPES, DEFAULT_MODEL_TYPE, validate_date
+from ctr_pipeline.config import (
+    DAILY_MODEL_TYPES,
+    DEFAULT_MODEL_TYPE,
+    DRIFT_ALERT_THRESHOLD,
+    previous_day,
+    validate_date,
+)
+from ctr_pipeline.drift import drift_for_date
 from ctr_pipeline.errors import MissingInputError, QualityCheckFailed, SkipStep
 from ctr_pipeline.features import build_training_set, feature_stats, load_training_day
 from ctr_pipeline.hourly_load import is_day_complete, load_hourly, missing_hours
 from ctr_pipeline.models.train import MODEL_TYPES, train_for_date
 from ctr_pipeline.monitoring import (
     init_schema,
+    record_feature_drift,
     record_feature_stats,
     record_quality_results,
     record_step,
@@ -85,6 +93,29 @@ def cmd_build_training_set(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_feature_drift(args: argparse.Namespace) -> int:
+    """Compare the day's smoothed features with the day before and store the distance of each.
+
+    Drift never fails the step: it is for alerting, and a large value must not stop training.
+    A SkipStep (the first training day) propagates, so main() exits 99.
+    """
+    date = args.date
+    with record_step("feature-drift", date):
+        values = drift_for_date(date)
+        record_feature_drift(date, previous_day(date), values)
+        for feature, distance in values.items():
+            logger.info("%s %.4f", feature, distance)
+            if distance > DRIFT_ALERT_THRESHOLD:
+                logger.warning(
+                    "%s drifted on %s: distance %.4f is above %.2f",
+                    feature,
+                    date,
+                    distance,
+                    DRIFT_ALERT_THRESHOLD,
+                )
+    return EXIT_OK
+
+
 def _run_training(date: str, model_type: str = DEFAULT_MODEL_TYPE) -> str:
     """Fit, evaluate and log one day's model, and return the MLflow run id.
 
@@ -129,6 +160,11 @@ def cmd_run_day(args: argparse.Namespace) -> int:
         raise MissingInputError(f"{date}: the 24 hourly folders are not all present yet")
     cmd_quality_check(argparse.Namespace(date=date))
     cmd_build_training_set(argparse.Namespace(date=date))
+    try:
+        cmd_feature_drift(argparse.Namespace(date=date))
+    except SkipStep as skip:
+        # The first training day has nothing to compare with, and training must still run.
+        logger.info("feature drift skipped for %s: %s", date, skip)
     # One model at a time: the models would compete for memory if they ran in parallel.
     run_ids: list[str] = []
     for model_type in DAILY_MODEL_TYPES:
@@ -189,6 +225,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="MLflow run id from train; repeat for each candidate",
     )
     promote.set_defaults(handler=cmd_promote)
+
+    drift = subcommands.add_parser(
+        "feature-drift", help="Distance of each smoothed feature from the day before"
+    )
+    drift.add_argument("--date", type=validate_date, required=True, help="YYYY-MM-DD")
+    drift.set_defaults(handler=cmd_feature_drift)
 
     init = subcommands.add_parser("monitoring-init", help="create monitoring tables if missing")
     init.set_defaults(handler=cmd_monitoring_init)

@@ -47,3 +47,12 @@ CREATE TABLE IF NOT EXISTS feature_daily_stats (
     null_fraction DOUBLE PRECISION,
     PRIMARY KEY (data_date, feature)
 );
+
+CREATE TABLE IF NOT EXISTS feature_drift (
+    data_date      DATE NOT NULL,
+    reference_date DATE NOT NULL,
+    feature        TEXT NOT NULL,
+    distance       DOUBLE PRECISION NOT NULL,
+    computed_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (data_date, feature)
+);

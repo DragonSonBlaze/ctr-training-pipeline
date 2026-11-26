@@ -14,6 +14,7 @@ TASK_ORDER = [
     "wait_for_day",
     "quality_checks",
     "build_training_set",
+    "feature_drift",
     "train_logistic",
     "train_embedding",
     "promote",
@@ -39,6 +40,10 @@ def check() -> list[str]:
             downstream
         }:
             problems.append(f"{upstream} must run directly before {downstream}")
+    train = dag.task_dict.get("train_logistic")
+    # A skipped drift check (first training day) must not block training.
+    if train is not None and train.trigger_rule != "none_failed":
+        problems.append("train_logistic must use trigger_rule none_failed")
     if dag.max_active_runs != 1:
         problems.append(f"max_active_runs is {dag.max_active_runs}, expected 1")
     return problems

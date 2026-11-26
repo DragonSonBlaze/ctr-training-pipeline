@@ -1,0 +1,290 @@
+# Alert rules that Grafana loads at startup. One rule group, five rules.
+# Each query returns a text column (the label of its alert instance) and a number.
+# The thresholds must equal the constants in src/ctr_pipeline/config.py; a test checks them.
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: ctr-pipeline
+    folder: CTR pipeline
+    interval: 1m
+    rules:
+      - uid: ctr-step-run-time
+        title: "Pipeline step took too long"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: monitoring-postgres
+            model:
+              datasource:
+                type: grafana-postgresql-datasource
+                uid: monitoring-postgres
+              editorMode: code
+              format: table
+              rawQuery: true
+              rawSql: "SELECT DISTINCT ON (step) step, duration_s FROM pipeline_step_runs WHERE status = 'success' ORDER BY step, finished_at DESC"
+              refId: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              datasource:
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    params:
+                      - 600
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: C
+              type: threshold
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        isPaused: false
+        annotations:
+          summary: "The latest successful run of this step took longer than 600 seconds."
+        labels:
+          severity: warning
+      - uid: ctr-step-failed
+        title: "Pipeline step failed"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: monitoring-postgres
+            model:
+              datasource:
+                type: grafana-postgresql-datasource
+                uid: monitoring-postgres
+              editorMode: code
+              format: table
+              rawQuery: true
+              rawSql: "SELECT DISTINCT ON (step) step, CASE WHEN status = 'failed' THEN 1 ELSE 0 END AS failed FROM pipeline_step_runs WHERE status <> 'skipped' ORDER BY step, finished_at DESC"
+              refId: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              datasource:
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: C
+              type: threshold
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        isPaused: false
+        annotations:
+          summary: "The latest run of this step failed. Skipped runs are not counted."
+        labels:
+          severity: warning
+      - uid: ctr-row-count
+        title: "Training set row count too low"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: monitoring-postgres
+            model:
+              datasource:
+                type: grafana-postgresql-datasource
+                uid: monitoring-postgres
+              editorMode: code
+              format: table
+              rawQuery: true
+              rawSql: "SELECT 'training_rows' AS item, rows_out FROM pipeline_step_runs WHERE step = 'build-training-set' AND status = 'success' AND rows_out IS NOT NULL ORDER BY data_date DESC, finished_at DESC LIMIT 1"
+              refId: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              datasource:
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    params:
+                      - 1000000
+                    type: lt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: C
+              type: threshold
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        isPaused: false
+        annotations:
+          summary: "The latest training set has fewer rows than the daily minimum of 1,000,000."
+        labels:
+          severity: warning
+      - uid: ctr-feature-drift
+        title: "Input feature drift"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: monitoring-postgres
+            model:
+              datasource:
+                type: grafana-postgresql-datasource
+                uid: monitoring-postgres
+              editorMode: code
+              format: table
+              rawQuery: true
+              rawSql: "SELECT feature, distance FROM feature_drift WHERE data_date = (SELECT max(data_date) FROM feature_drift)"
+              refId: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              datasource:
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    params:
+                      - 0.02
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: C
+              type: threshold
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        isPaused: false
+        annotations:
+          summary: "This feature moved more than 0.02 click-rate points on average since the previous day (Wasserstein distance)."
+        labels:
+          severity: warning
+      - uid: ctr-calibration
+        title: "Predicted click rate off from actual"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: monitoring-postgres
+            model:
+              datasource:
+                type: grafana-postgresql-datasource
+                uid: monitoring-postgres
+              editorMode: code
+              format: table
+              rawQuery: true
+              rawSql: "SELECT DISTINCT ON (model_type) model_type, abs(mean_pred - actual_ctr) / actual_ctr AS rel_error FROM model_runs WHERE model_type IN ('logistic_hashed', 'embedding_nn') ORDER BY model_type, data_date DESC, recorded_at DESC"
+              refId: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+          - refId: C
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              datasource:
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    params:
+                      - 0.1
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: C
+              type: threshold
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        isPaused: false
+        annotations:
+          summary: "On the latest day, the mean predicted click rate is more than 10 percent away from the actual click rate."
+        labels:
+          severity: warning

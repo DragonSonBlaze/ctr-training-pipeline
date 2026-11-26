@@ -57,12 +57,20 @@ with DAG(
         bash_command=cli("build-training-set --date {{ ds }}"),
     )
 
+    # Drift is for alerting only. On the first training day it is skipped (exit 99),
+    # and training must still run, so train_logistic accepts a skipped upstream task.
+    feature_drift = BashOperator(
+        task_id="feature_drift",
+        bash_command=cli("feature-drift --date {{ ds }}"),
+    )
+
     # Exit code 99 marks a task skipped. The run id is the last line of stdout,
     # which BashOperator pushes to XCom. The models train one after the other, so
     # they never compete for memory.
     train_logistic = BashOperator(
         task_id="train_logistic",
         bash_command=cli("train --date {{ ds }} --model logistic_hashed"),
+        trigger_rule="none_failed",
     )
 
     train_embedding = BashOperator(
@@ -83,6 +91,7 @@ with DAG(
         wait_for_day
         >> quality_checks
         >> build_training_set
+        >> feature_drift
         >> train_logistic
         >> train_embedding
         >> promote

@@ -66,5 +66,5 @@ Run the tests with `make test`. `make` alone lists every command.
 
 ## Status
 
-Working: hourly tables, quality checks, training sets, both models, MLflow tracking and promotion, the Airflow DAG, the Grafana dashboard.
-Not yet: Grafana alerts, a drift score beyond daily feature means.
+Working: hourly tables, quality checks, training sets, both models, MLflow tracking and promotion, the Airflow DAG, the Grafana dashboard, and alerts on run time, failures, row counts, feature drift and calibration.
+Not yet: notifications from the alerts (they show in Grafana's Alerting page only).
