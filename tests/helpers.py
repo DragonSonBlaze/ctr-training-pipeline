@@ -4,7 +4,9 @@ import itertools
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
+import mlflow.pyfunc
 import numpy as np
 import pandas as pd
 from pyspark.sql import SparkSession
@@ -90,3 +92,13 @@ def write_training_day(settings: Settings, date: str, frame: pd.DataFrame) -> No
         "created_at": datetime.now(UTC).isoformat(),
     }
     (settings.manifests_dir / f"{date}.json").write_text(json.dumps(manifest, sort_keys=True))
+
+
+class ConstantRatePyfunc(mlflow.pyfunc.PythonModel):
+    """A stand-in model that predicts the same click rate for every row."""
+
+    def __init__(self, rate: float) -> None:
+        self.rate = rate
+
+    def predict(self, context: Any, model_input: pd.DataFrame, params: Any = None) -> np.ndarray:
+        return np.full(len(model_input), self.rate)

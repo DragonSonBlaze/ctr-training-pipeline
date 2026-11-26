@@ -8,7 +8,6 @@ dependencies = [
     "pyspark>=4.0,<5",
     "pyarrow>=17",
     "pandas>=2.2",
-    "torch>=2.5",
     # Must match MLFLOW_VERSION in .env, which sets the tracking server's version.
     "mlflow==3.18.0",
     "psycopg[binary]>=3.2",

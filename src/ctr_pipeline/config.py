@@ -34,7 +34,6 @@ VALIDATION_SAMPLE_FRACTION = 0.25
 SPLITS: tuple[str, ...] = ("train", "validation", "test")
 FEATURE_VERSION = "v1"
 FEATURE_ALPHA = 20.0
-MODEL_BETA = 20.0
 TRAIN_SAMPLE_FRACTION = 0.15
 TRAIN_SAMPLE_SEED = 42
 MIN_ROWS_PER_HOUR = 5000
@@ -45,24 +44,9 @@ MLFLOW_EXPERIMENT = "ctr-daily"
 REGISTERED_MODEL = "ctr-model"
 CHAMPION_ALIAS = "champion"
 
-# Logistic regression on hashed features: the model `train` uses when none is given
-DEFAULT_MODEL_TYPE = "logistic_hashed"
-NUM_HASH_BUCKETS = 2**20
-LR_EPOCHS = 2
-LR_BATCH_SIZE = 8192
-LR_LEARNING_RATE = 0.01
-TORCH_SEED = 42
 EVAL_BATCH_ROWS = 500_000
 # A candidate must beat the champion by more than rounding noise before it replaces it.
 MIN_LOG_LOSS_IMPROVEMENT = 1e-4
-
-# Every daily run trains these models on the same sample, one after the other
-DAILY_MODEL_TYPES: tuple[str, ...] = ("logistic_hashed", "embedding_nn")
-NN_EMBEDDING_DIM = 16
-NN_HIDDEN_UNITS: tuple[int, ...] = (64, 32)
-NN_EPOCHS = 2
-NN_BATCH_SIZE = 8192
-NN_LEARNING_RATE = 0.002
 
 # scikit-learn logistic regression baseline: hash space, L2 strength and solver iteration cap
 SK_NUM_BUCKETS = 2**20

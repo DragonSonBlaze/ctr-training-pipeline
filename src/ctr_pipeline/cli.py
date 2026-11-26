@@ -11,21 +11,14 @@ import logging
 import sys
 from collections.abc import Callable
 
-from ctr_pipeline.config import (
-    DAILY_MODEL_TYPES,
-    DEFAULT_MODEL_TYPE,
-    DRIFT_ALERT_THRESHOLD,
-    previous_day,
-    validate_date,
-)
+from ctr_pipeline.config import DRIFT_ALERT_THRESHOLD, previous_day, validate_date
 from ctr_pipeline.dataset import build_dataset, latest_version
 from ctr_pipeline.drift import drift_for_date
 from ctr_pipeline.drift_report import run_drift_report
-from ctr_pipeline.errors import MissingInputError, QualityCheckFailed, SkipStep
+from ctr_pipeline.errors import QualityCheckFailed, SkipStep
 from ctr_pipeline.experiment import run_experiment
 from ctr_pipeline.features import build_training_set, feature_stats, load_training_day
 from ctr_pipeline.hourly_load import is_day_complete, load_hourly, missing_hours
-from ctr_pipeline.models.train import MODEL_TYPES, train_for_date
 from ctr_pipeline.monitoring import (
     init_schema,
     record_feature_drift,
@@ -33,7 +26,7 @@ from ctr_pipeline.monitoring import (
     record_quality_results,
     record_step,
 )
-from ctr_pipeline.promotion import candidate_run_ids, promote_if_better, register_if_better
+from ctr_pipeline.promotion import candidate_run_ids, register_if_better
 from ctr_pipeline.quality_checks import CheckResult, run_quality_checks
 
 logger = logging.getLogger(__name__)
@@ -141,26 +134,6 @@ def cmd_drift_report(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
-def _run_training(date: str, model_type: str = DEFAULT_MODEL_TYPE) -> str:
-    """Fit, evaluate and log one day's model, and return the MLflow run id.
-
-    Raises SkipStep when there are no earlier training sets to fit on.
-    """
-    with record_step("train", date) as stats:
-        result = train_for_date(date, model_type)
-        stats.rows_in = result.train_rows
-    logger.info("run %s: metrics %s", result.run_id, result.metrics)
-    return result.run_id
-
-
-def cmd_train(args: argparse.Namespace) -> int:
-    run_id = _run_training(args.date, args.model)
-    # The run id must be the last line of stdout, alone: Airflow reads it and passes it to promote.
-    sys.stdout.write(run_id + "\n")
-    sys.stdout.flush()
-    return EXIT_OK
-
-
 def cmd_experiment(args: argparse.Namespace) -> int:
     version = args.dataset or latest_version()
     with record_step("experiment", None):
@@ -172,16 +145,9 @@ def cmd_experiment(args: argparse.Namespace) -> int:
         result.best_trial.run_id,
         result.best_trial.val_log_loss,
     )
-    # The parent run id must be the last line of stdout, alone, as for train.
+    # The parent run id must be the last line of stdout, alone: Airflow reads it.
     sys.stdout.write(result.parent_run_id + "\n")
     sys.stdout.flush()
-    return EXIT_OK
-
-
-def cmd_promote(args: argparse.Namespace) -> int:
-    with record_step("promote", args.date):
-        promote_if_better(args.date, args.run_id)
-    # Not promoting is a normal outcome, so the exit code stays 0 either way.
     return EXIT_OK
 
 
@@ -203,29 +169,6 @@ def cmd_register(args: argparse.Namespace) -> int:
 def cmd_monitoring_init(args: argparse.Namespace) -> int:
     init_schema()
     logger.info("monitoring tables ready")
-    return EXIT_OK
-
-
-def cmd_run_day(args: argparse.Namespace) -> int:
-    date = args.date
-    if not is_day_complete(date):
-        raise MissingInputError(f"{date}: the 24 hourly folders are not all present yet")
-    cmd_quality_check(argparse.Namespace(date=date))
-    cmd_build_training_set(argparse.Namespace(date=date))
-    try:
-        cmd_feature_drift(argparse.Namespace(date=date))
-    except SkipStep as skip:
-        # The first training day has nothing to compare with, and training must still run.
-        logger.info("feature drift skipped for %s: %s", date, skip)
-    # One model at a time: the models would compete for memory if they ran in parallel.
-    run_ids: list[str] = []
-    for model_type in DAILY_MODEL_TYPES:
-        try:
-            run_ids.append(_run_training(date, model_type))
-        except SkipStep as skip:
-            logger.info("train skipped for %s, promote not run: %s", date, skip)
-            return EXIT_SKIPPED
-    cmd_promote(argparse.Namespace(date=date, run_id=run_ids))
     return EXIT_OK
 
 
@@ -259,18 +202,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     dataset.set_defaults(handler=cmd_build_dataset)
 
-    train = subcommands.add_parser(
-        "train", help="fit on earlier days, evaluate on one day, log to MLflow"
-    )
-    train.add_argument("--date", type=validate_date, required=True, help="YYYY-MM-DD")
-    train.add_argument(
-        "--model",
-        choices=sorted(MODEL_TYPES),
-        default=DEFAULT_MODEL_TYPE,
-        help="model type to fit (default: %(default)s)",
-    )
-    train.set_defaults(handler=cmd_train)
-
     experiment = subcommands.add_parser(
         "experiment", help="baseline and Keras sweep over one dataset, tracked in MLflow"
     )
@@ -278,18 +209,6 @@ def build_parser() -> argparse.ArgumentParser:
         "--dataset", default=None, help="dataset version (default: the newest one)"
     )
     experiment.set_defaults(handler=cmd_experiment)
-
-    promote = subcommands.add_parser(
-        "promote", help="pick the best candidate of the day and move the champion alias if better"
-    )
-    promote.add_argument("--date", type=validate_date, required=True, help="YYYY-MM-DD")
-    promote.add_argument(
-        "--run-id",
-        action="append",
-        required=True,
-        help="MLflow run id from train; repeat for each candidate",
-    )
-    promote.set_defaults(handler=cmd_promote)
 
     candidates = subcommands.add_parser(
         "experiment-candidates",
@@ -331,10 +250,6 @@ def build_parser() -> argparse.ArgumentParser:
 
     init = subcommands.add_parser("monitoring-init", help="create monitoring tables if missing")
     init.set_defaults(handler=cmd_monitoring_init)
-
-    day = subcommands.add_parser("run-day", help="every step in order, for one day")
-    day.add_argument("--date", type=validate_date, required=True, help="YYYY-MM-DD")
-    day.set_defaults(handler=cmd_run_day)
 
     return parser
 

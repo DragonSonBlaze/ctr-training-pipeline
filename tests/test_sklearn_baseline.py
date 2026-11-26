@@ -7,7 +7,6 @@ from sklearn.metrics import roc_auc_score
 from ctr_pipeline.config import MLFLOW_EXPERIMENT
 from ctr_pipeline.contracts import NUMERIC_FEATURES
 from ctr_pipeline.models.sklearn_baseline import SklearnLogisticModel
-from ctr_pipeline.models.train import MODEL_TYPES
 from helpers import training_frame
 
 BUCKETS = 2**12
@@ -86,8 +85,3 @@ def test_pyfunc_round_trip(mlflow_sandbox):
     loaded = mlflow.pyfunc.load_model(f"runs:/{run.info.run_id}/model")
 
     np.testing.assert_allclose(loaded.predict(sample), model.predict(sample))
-
-
-def test_train_for_date_accepts_the_new_type():
-    assert "sklearn_logistic" in MODEL_TYPES
-    assert isinstance(MODEL_TYPES["sklearn_logistic"](), SklearnLogisticModel)

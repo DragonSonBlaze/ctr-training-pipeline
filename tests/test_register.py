@@ -1,18 +1,22 @@
 import mlflow
 import pytest
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import (
+    INTERNAL_ERROR,
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
+)
 from mlflow.tracking import MlflowClient
 
 from ctr_pipeline import config
 from ctr_pipeline.config import CHAMPION_ALIAS, MLFLOW_EXPERIMENT, REGISTERED_MODEL
 from ctr_pipeline.dataset import build_dataset
-from ctr_pipeline.models.historical_ctr import HistoricalCtrPyfunc
-from ctr_pipeline.promotion import register_if_better
-from helpers import training_frame, write_training_day
+from ctr_pipeline.promotion import _champion, register_if_better
+from helpers import ConstantRatePyfunc, training_frame, write_training_day
 
 TRAIN = ("2014-10-22",)
 VALIDATION = ("2014-10-23",)
 TEST = ("2014-10-24",)
-BETA = 20.0
 TRAIN_DAYS = "2014-10-22,2014-10-23"
 CALIBRATION_METRICS = (
     "test_auc",
@@ -41,7 +45,7 @@ def log_candidate(p0: float, train_days: str | None = TRAIN_DAYS) -> str:
             mlflow.log_param("train_days", train_days)
         mlflow.pyfunc.log_model(
             name="model",
-            python_model=HistoricalCtrPyfunc(p0, BETA),
+            python_model=ConstantRatePyfunc(p0),
             pip_requirements=["numpy", "pandas"],
         )
     return run.info.run_id
@@ -139,3 +143,27 @@ def test_registered_version_tagged_with_dataset_version(dataset):
     tags = MlflowClient().get_model_version(REGISTERED_MODEL, "1").tags
     assert tags["dataset_version"] == dataset
     assert "test_log_loss" in tags
+
+
+class _FailingClient:
+    def __init__(self, message: str, error_code: int) -> None:
+        self.message = message
+        self.error_code = error_code
+
+    def get_model_version_by_alias(self, name, alias):
+        raise MlflowException(self.message, error_code=self.error_code)
+
+
+def test_missing_alias_means_no_champion():
+    client = _FailingClient("Registered model alias champion not found.", INVALID_PARAMETER_VALUE)
+    assert _champion(client) is None
+
+
+def test_missing_model_means_no_champion():
+    client = _FailingClient("Registered Model ctr-model not found", RESOURCE_DOES_NOT_EXIST)
+    assert _champion(client) is None
+
+
+def test_other_registry_errors_are_not_treated_as_no_champion():
+    with pytest.raises(MlflowException):
+        _champion(_FailingClient("API request failed", INTERNAL_ERROR))

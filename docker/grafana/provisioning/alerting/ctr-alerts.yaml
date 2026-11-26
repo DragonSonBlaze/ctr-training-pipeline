@@ -248,7 +248,7 @@ groups:
               editorMode: code
               format: table
               rawQuery: true
-              rawSql: "SELECT DISTINCT ON (model_type) model_type, abs(mean_pred - actual_ctr) / actual_ctr AS rel_error FROM model_runs WHERE model_type IN ('logistic_hashed', 'embedding_nn') ORDER BY model_type, data_date DESC, recorded_at DESC"
+              rawSql: "SELECT DISTINCT ON (model_type) model_type, abs(mean_pred - actual_ctr) / actual_ctr AS rel_error FROM model_runs WHERE model_type IN ('sklearn_logistic', 'keras_embedding') ORDER BY model_type, data_date DESC, recorded_at DESC"
               refId: A
               intervalMs: 1000
               maxDataPoints: 43200

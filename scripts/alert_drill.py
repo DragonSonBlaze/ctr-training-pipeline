@@ -101,7 +101,7 @@ BREAKS: tuple[Break, ...] = (
             "(mlflow_run_id, data_date, model_type, dataset_version, mean_pred, actual_ctr) "
             "VALUES (%s, %s, %s, %s, %s, %s)"
         ),
-        params=("alert-drill", DRILL_DATE, "logistic_hashed", "alert-drill", 0.5, 0.17),
+        params=("alert-drill", DRILL_DATE, "sklearn_logistic", "alert-drill", 0.5, 0.17),
     ),
 )
 

@@ -1,9 +1,9 @@
 """Numeric click-history features, scaled the same way for every model.
 
 Click rates become log-odds and impression counts become log1p, then each column is
-standardised with the mean and standard deviation of the training rows. The PyTorch
-models and the scikit-learn baseline share this code, so a comparison between them
-is about the model, not the inputs.
+standardised with the mean and standard deviation of the training rows. The scikit-learn
+baseline and the Keras model share this code, so a comparison between them is about the
+model, not the inputs.
 """
 
 from __future__ import annotations

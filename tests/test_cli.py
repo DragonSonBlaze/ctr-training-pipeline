@@ -14,16 +14,16 @@ def test_skip_maps_to_99(monkeypatch):
     def skip(args):
         raise SkipStep("x")
 
-    monkeypatch.setattr(cli, "cmd_train", skip)
-    assert cli.main(["train", "--date", "2014-10-22"]) == 99
+    monkeypatch.setattr(cli, "cmd_experiment", skip)
+    assert cli.main(["experiment", "--dataset", "ds-000000000000"]) == 99
 
 
 def test_error_maps_to_1(monkeypatch):
     def boom(args):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(cli, "cmd_train", boom)
-    assert cli.main(["train", "--date", "2014-10-22"]) == 1
+    monkeypatch.setattr(cli, "cmd_experiment", boom)
+    assert cli.main(["experiment", "--dataset", "ds-000000000000"]) == 1
 
 
 def test_bad_date_rejected():
@@ -52,11 +52,8 @@ def test_parser_lists_subcommands():
         "build-dataset",
         "feature-drift",
         "drift-report",
-        "train",
         "experiment",
-        "promote",
         "experiment-candidates",
         "register",
         "monitoring-init",
-        "run-day",
     }
