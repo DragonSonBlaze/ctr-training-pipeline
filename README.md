@@ -1,10 +1,10 @@
-# CTR Training-Data and ML Pipeline
+# Click-Through Rate (CTR) Prediction Pipeline
 
-Turns 10 days of mobile ad logs into daily, leakage-free training sets, trains click-through-rate models on them, and promotes a new model only when it beats the current one. A prototype that runs end to end on a laptop.
+Turns 10 days of mobile ad logs into versioned training datasets split by day, trains a TensorFlow (Keras) click model against a scikit-learn logistic regression baseline, tunes it with tracked sweeps, and registers a new model only when its log loss beats the current one. A prototype that runs locally with Docker Compose.
 
 - **Data:** [Avazu CTR](https://www.kaggle.com/competitions/avazu-ctr-prediction) `train.gz`, 40.4M ad impressions over 10 days (21 to 30 Oct 2014), each labelled clicked or not.
-- **Stack:** Python 3.12, PySpark 4, Airflow 3, PyTorch, MLflow, PostgreSQL, Grafana, Docker Compose.
-- **Models:** logistic regression and an embedding neural network on hashed categorical features, both retrained daily on earlier days and scored on the next day by AUC and log loss.
+- **Stack:** Python, PySpark, TensorFlow (Keras), scikit-learn, Airflow, MLflow, Evidently, Docker, PyTest.
+- **Models:** a Keras network with feature hashing and embeddings, and a scikit-learn logistic regression baseline, compared on AUC and log loss. Split by day: train 22 to 27 Oct, validation 28 Oct, test 29 and 30 Oct.
 
 ## How it works
 
@@ -12,29 +12,24 @@ Turns 10 days of mobile ad logs into daily, leakage-free training sets, trains c
 flowchart TD
     raw[("Avazu train.csv<br/>40.4M rows")] -->|"load-hourly (PySpark)"| hourly[("Hourly Parquet tables<br/>dt=YYYY-MM-DD / hr=H")]
 
-    subgraph dag ["Airflow DAG ctr_daily: one run per day D"]
+    subgraph dag ["Airflow DAG ctr_training"]
         direction TB
-        wait["wait_for_day<br/>all 24 hours of D present"] --> qc["quality_checks<br/>schema, nulls, click rate"]
-        qc --> build["build_training_set<br/>click history from hours before each row"]
-        build --> drift["feature_drift<br/>distance from day D-1"]
-        drift --> lr["train_logistic<br/>fit on days before D, score on D"]
-        lr --> nn["train_embedding<br/>fit on days before D, score on D"]
-        nn --> promote["promote<br/>best candidate replaces champion<br/>only if log loss is lower on D"]
+        wait["wait_for_data<br/>all 10 days present"] --> qc["quality_checks, per day<br/>schema, null rates, click rate"]
+        qc --> build["build_training_set, per day<br/>click history from hours before each row"]
+        build --> ds["build_dataset<br/>versioned split by day:<br/>train, validation, test"]
+        ds --> exp["experiment<br/>scikit-learn baseline and a Keras sweep<br/>early stopping on validation log loss"]
+        exp --> drift["drift_report<br/>Evidently, train days vs test days"]
+        drift --> reg["register<br/>only if test log loss beats the champion"]
     end
 
     hourly --> wait
-    build --> sets[("Training sets<br/>versioned, one per day")]
-    lr --> mlflow[("MLflow<br/>runs, metrics, model registry")]
-    nn --> mlflow
-    promote --> mlflow
-    qc --> pg[("PostgreSQL<br/>per-run metrics")]
-    build --> pg
-    drift --> pg
-    promote --> pg
-    pg --> grafana["Grafana dashboard and alerts<br/>run time, rows, drift, calibration"]
+    ds --> sets[("Versioned Parquet datasets")]
+    exp --> mlflow[("MLflow<br/>runs, sweeps, model registry")]
+    drift --> mlflow
+    reg --> mlflow
 ```
 
-Each Airflow task is one command (`python -m ctr_pipeline <step> --date D`), so every step also runs by hand without Airflow.
+Each Airflow task is one command (`python -m ctr_pipeline <step>`), so every step also runs by hand without Airflow. Airflow, MLflow and the training job run in Docker Compose.
 
 ## Results
 
@@ -71,12 +66,12 @@ From one replay of 22 to 30 Oct on a laptop (Apple M4, 16 GB). Day D is scored o
 
 ## Setup
 
-Needs Docker, Java 17 or 21, [uv](https://docs.astral.sh/uv/) and about 15 GB of free disk.
+Needs Docker, [uv](https://docs.astral.sh/uv/) and about 25 GB of free disk.
 
 ```bash
 git clone https://github.com/DragonSonBlaze/ctr-training-pipeline.git && cd ctr-training-pipeline
 make env      # creates .env; change the passwords in it
-make sync     # Python 3.12 environment with all packages
+make sync     # Python 3.12 environment for the tests
 ```
 
 Download `train.gz` from the competition's Data tab (needs a Kaggle account and accepting the rules), then:
@@ -84,16 +79,14 @@ Download `train.gz` from the competition's Data tab (needs a Kaggle account and 
 ```bash
 mv ~/Downloads/train.gz data/raw/
 make data                    # decompress to data/raw/train.csv
-make up monitoring-init      # start Postgres, MLflow, Grafana; create metric tables
-make load                    # build the hourly Parquet tables (about 3 minutes)
-make airflow-install
-make airflow                 # Airflow UI on localhost:8080; keep this terminal open
-make replay                  # in a second terminal: runs the pipeline for every day
+make up monitoring-init      # build and start Postgres, MLflow, Grafana and Airflow
+make load                    # build the hourly Parquet tables
+make pipeline                # trigger the Airflow DAG
 ```
 
 | Service | URL |
 |---|---|
-| Airflow | http://localhost:8080 (password in `.airflow/simple_auth_manager_passwords.json.generated`) |
+| Airflow | http://localhost:8080 (no login; reachable from this machine only) |
 | MLflow | http://localhost:5001 |
 | Grafana | http://localhost:3000 (login from `.env`) |
 
@@ -101,5 +94,5 @@ Run the tests with `make test`. `make` alone lists every command.
 
 ## Status
 
-Working: hourly tables, quality checks, training sets, both models, MLflow tracking and promotion, the Airflow DAG, the Grafana dashboard, and alerts on run time, failures, row counts, feature drift and calibration.
-Not yet: notifications from the alerts (they show in Grafana's Alerting page only).
+Working: PySpark data preparation and quality checks, versioned datasets split by day, the scikit-learn baseline, the Keras model and its sweep in MLflow, registration only on lower test log loss, Evidently drift reports and calibration per run, the Airflow DAG in Docker Compose, and the PyTest suite.
+Not yet: notifications from the Grafana alerts (they show in Grafana's Alerting page only).
