@@ -55,6 +55,9 @@ From one replay of 22 to 30 Oct on a laptop (Apple M4, 16 GB). Day D is scored o
 - **Calibration:** on 30 Oct the embedding model's mean predicted click rate was 0.1642 against an actual 0.1693.
 - **Run time:** one DAG run took 86 s on 22 Oct (no training yet) and grew to 279 s on 30 Oct as the training days add up.
 - **Drift:** the distance passed the 0.02 alert line twice, both on the site feature: 0.0255 on 23 Oct and 0.0240 on 28 Oct.
+- **Re-runs:** running all nine days a second time left the registry at the same 8 versions and the same champion. On 23 to 29 Oct the champion had been trained on that day, so it was kept without a comparison; on 30 Oct the retrained model matched it to the last digit of log loss.
+
+![Grafana dashboard after the replay](docs/images/grafana-dashboard.png)
 
 `make alert-drill` writes one broken monitoring row per alert, waits for Grafana, then removes the rows. Measured run:
 
