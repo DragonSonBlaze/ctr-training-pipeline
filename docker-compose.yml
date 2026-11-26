@@ -1,8 +1,43 @@
-# Local services: Postgres, MLflow tracking server, Grafana.
-# Spark and PyTorch run on the Mac in the project's .venv, not in these containers.
+# Local services: Postgres, MLflow tracking server, Grafana, and Airflow with the
+# training job. Spark runs in local mode inside the Airflow task processes.
 # Ports are bound to 127.0.0.1 so nothing is reachable from other machines.
+# The Airflow login is open to every admin because this is a laptop prototype
+# and the port is reachable only from this machine.
 
 name: ctr-pipeline
+
+x-airflow-common: &airflow-common
+  build:
+    context: .
+    dockerfile: docker/airflow/Dockerfile
+  image: ctr-pipeline-airflow
+  # Runs as the Mac user so files written to the mounted data/ belong to that user.
+  # Group 0 is what the official Airflow image expects.
+  user: "${AIRFLOW_UID:-50000}:0"
+  environment:
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/airflow
+    AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+    AIRFLOW__CORE__DAGS_FOLDER: /opt/ctr/dags
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "False"
+    # At most two task processes at once. The DAG already runs one Spark job at a time.
+    AIRFLOW__CORE__PARALLELISM: "2"
+    AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_ALL_ADMINS: "True"
+    # The scheduler and the API server must sign and check task tokens with the same
+    # key. Make env generates it into .env.
+    AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_JWT_SECRET}
+    # The repo and data/ are mounted, so a code change needs no image rebuild.
+    PYTHONPATH: /opt/ctr/src
+    CTR_REPO: /opt/ctr
+    CTR_DATA_DIR: /opt/ctr/data
+    CTR_PYTHON: /opt/ctr-venv/bin/python
+    PYSPARK_PYTHON: /opt/ctr-venv/bin/python
+    SPARK_DRIVER_MEMORY: ${SPARK_DRIVER_MEMORY}
+    MLFLOW_TRACKING_URI: http://mlflow:5000
+    CTR_MONITORING_DSN: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/monitoring
+  volumes:
+    - ./:/opt/ctr
+  restart: unless-stopped
 
 services:
   postgres:
@@ -78,6 +113,50 @@ services:
       - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./docker/grafana/dashboards:/etc/grafana/dashboards:ro
     restart: unless-stopped
+
+  # Runs the metadata migration once and exits. The other Airflow services wait for it.
+  airflow-init:
+    <<: *airflow-common
+    command: ["db", "migrate"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+
+  airflow-dag-processor:
+    <<: *airflow-common
+    command: dag-processor
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+
+  airflow-api-server:
+    <<: *airflow-common
+    command: api-server
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${AIRFLOW_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/api/v2/monitor/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
 
 volumes:
   postgres-data:

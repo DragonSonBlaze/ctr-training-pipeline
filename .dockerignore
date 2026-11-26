@@ -1,0 +1,15 @@
+# Keeps the image build context small. The repo is bind-mounted at run time, so these
+# are never needed inside the image. data/ alone is about 10 GB.
+data/
+.venv/
+.venv-airflow/
+.airflow/
+.git/
+mlruns/
+mlartifacts/
+**/__pycache__/
+.pytest_cache/
+.ruff_cache/
+docs/
+specs/
+.env
