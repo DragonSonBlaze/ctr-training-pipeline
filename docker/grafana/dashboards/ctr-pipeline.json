@@ -210,7 +210,7 @@
     {
       "id": 7,
       "type": "table",
-      "title": "Promotions",
+      "title": "Promoted models (registry versions)",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -235,7 +235,7 @@
           "editorMode": "code",
           "rawQuery": true,
           "format": "table",
-          "rawSql": "SELECT DISTINCT ON (data_date, model_type) data_date, model_type, model_version, log_loss, champion_log_loss, promoted FROM model_runs WHERE $__timeFilter(data_date) ORDER BY data_date DESC, model_type, recorded_at DESC"
+          "rawSql": "SELECT data_date, model_type, model_version, log_loss, champion_log_loss FROM model_runs WHERE promoted AND model_version IS NOT NULL AND $__timeFilter(data_date) ORDER BY model_version DESC"
         }
       ]
     },
