@@ -51,6 +51,7 @@ def test_parser_lists_subcommands():
         "build-training-set",
         "build-dataset",
         "feature-drift",
+        "drift-report",
         "train",
         "experiment",
         "promote",

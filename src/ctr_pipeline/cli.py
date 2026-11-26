@@ -20,6 +20,7 @@ from ctr_pipeline.config import (
 )
 from ctr_pipeline.dataset import build_dataset, latest_version
 from ctr_pipeline.drift import drift_for_date
+from ctr_pipeline.drift_report import run_drift_report
 from ctr_pipeline.errors import MissingInputError, QualityCheckFailed, SkipStep
 from ctr_pipeline.experiment import run_experiment
 from ctr_pipeline.features import build_training_set, feature_stats, load_training_day
@@ -125,6 +126,18 @@ def cmd_feature_drift(args: argparse.Namespace) -> int:
                     distance,
                     DRIFT_ALERT_THRESHOLD,
                 )
+    return EXIT_OK
+
+
+def cmd_drift_report(args: argparse.Namespace) -> int:
+    with record_step("drift-report", None):
+        summary = run_drift_report(args.dataset, args.parent_run_id)
+    logger.info(
+        "drift report for %s: drift_share=%.3f, drifted_columns=%d",
+        args.dataset,
+        summary.drift_share,
+        summary.drifted_columns,
+    )
     return EXIT_OK
 
 
@@ -305,6 +318,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     drift.add_argument("--date", type=validate_date, required=True, help="YYYY-MM-DD")
     drift.set_defaults(handler=cmd_feature_drift)
+
+    drift_report = subcommands.add_parser(
+        "drift-report",
+        help="Evidently drift of the test days against the train days, logged to a parent run",
+    )
+    drift_report.add_argument("--dataset", required=True, help="dataset version")
+    drift_report.add_argument(
+        "--parent-run-id", required=True, help="MLflow parent run id printed by experiment"
+    )
+    drift_report.set_defaults(handler=cmd_drift_report)
 
     init = subcommands.add_parser("monitoring-init", help="create monitoring tables if missing")
     init.set_defaults(handler=cmd_monitoring_init)

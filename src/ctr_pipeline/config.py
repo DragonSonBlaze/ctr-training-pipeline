@@ -88,6 +88,8 @@ SWEEP_LEARNING_RATES: tuple[float, ...] = (1e-3, 3e-3)
 # 0.02 means the values moved 2 click-rate points on average.
 DRIFT_QUANTILES = 99
 DRIFT_ALERT_THRESHOLD = 0.02
+# Evidently drift report: rows sampled from each side (train as reference, test as current)
+DRIFT_SAMPLE_ROWS = 200_000
 
 # Grafana alert thresholds. The rule file repeats these values, and a test checks they match.
 ALERT_STEP_SECONDS = 600
