@@ -69,6 +69,16 @@ SK_NUM_BUCKETS = 2**20
 SK_C = 1.0
 SK_MAX_ITER = 100
 
+# TensorFlow Keras click model: hash space, embedding size, layers, optimiser and early stopping
+KERAS_NUM_BUCKETS = 2**20
+KERAS_EMBEDDING_DIM = 16
+KERAS_HIDDEN_UNITS: tuple[int, ...] = (64, 32)
+KERAS_LEARNING_RATE = 1e-3
+KERAS_BATCH_SIZE = 8192
+KERAS_MAX_EPOCHS = 4
+KERAS_PATIENCE = 1
+KERAS_SEED = 42
+
 # Feature drift: Wasserstein distance of each smoothed click-rate feature, day D against D-1.
 # 0.02 means the values moved 2 click-rate points on average.
 DRIFT_QUANTILES = 99
