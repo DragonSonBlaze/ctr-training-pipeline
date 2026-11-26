@@ -32,7 +32,7 @@ from ctr_pipeline.monitoring import (
     record_quality_results,
     record_step,
 )
-from ctr_pipeline.promotion import promote_if_better
+from ctr_pipeline.promotion import candidate_run_ids, promote_if_better, register_if_better
 from ctr_pipeline.quality_checks import CheckResult, run_quality_checks
 
 logger = logging.getLogger(__name__)
@@ -172,6 +172,21 @@ def cmd_promote(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_experiment_candidates(args: argparse.Namespace) -> int:
+    baseline_run_id, best_trial_run_id = candidate_run_ids(args.parent_run_id)
+    # The two run ids must be the last line of stdout, space-separated, for the DAG to read.
+    sys.stdout.write(f"{baseline_run_id} {best_trial_run_id}\n")
+    sys.stdout.flush()
+    return EXIT_OK
+
+
+def cmd_register(args: argparse.Namespace) -> int:
+    with record_step("register", None):
+        register_if_better(args.dataset, args.run_id)
+    # Not registering is a normal outcome, so the exit code stays 0 either way.
+    return EXIT_OK
+
+
 def cmd_monitoring_init(args: argparse.Namespace) -> int:
     init_schema()
     logger.info("monitoring tables ready")
@@ -262,6 +277,28 @@ def build_parser() -> argparse.ArgumentParser:
         help="MLflow run id from train; repeat for each candidate",
     )
     promote.set_defaults(handler=cmd_promote)
+
+    candidates = subcommands.add_parser(
+        "experiment-candidates",
+        help="print the baseline and best Keras trial run ids of an experiment run",
+    )
+    candidates.add_argument(
+        "--parent-run-id", required=True, help="parent run id printed by experiment"
+    )
+    candidates.set_defaults(handler=cmd_experiment_candidates)
+
+    register = subcommands.add_parser(
+        "register",
+        help="score candidates on the test split, register the best if it beats the champion",
+    )
+    register.add_argument("--dataset", required=True, help="dataset version to test on")
+    register.add_argument(
+        "--run-id",
+        action="append",
+        required=True,
+        help="MLflow run id of a candidate; repeat for each candidate",
+    )
+    register.set_defaults(handler=cmd_register)
 
     drift = subcommands.add_parser(
         "feature-drift", help="Distance of each smoothed feature from the day before"

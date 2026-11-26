@@ -54,6 +54,8 @@ def test_parser_lists_subcommands():
         "train",
         "experiment",
         "promote",
+        "experiment-candidates",
+        "register",
         "monitoring-init",
         "run-day",
     }
